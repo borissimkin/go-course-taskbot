@@ -12,15 +12,15 @@ type CmdRouter struct {
 func (r *CmdRouter) Parse(msg RequestMessage) {
 	input := msg.Text
 
+	chatID := ID(msg.ChatID)
+
+	r.service.UpdateOrCreateUser(msg.User)
+
 	switch {
 	case input == "/tasks":
-		fmt.Println("Показать список всех задач")
-
+		r.service.ListTasks(chatID)
 	case strings.HasPrefix(input, "/new "):
-		// Пример: /new XXX YYY ZZZ
-		args := strings.TrimPrefix(input, "/new ")
-		fmt.Printf("Создать новую задачу с параметрами: %s\n", args)
-
+		r.service.CreateTask(chatID, strings.TrimPrefix(input, "/new "))
 	case strings.HasPrefix(input, "/assign_"):
 		id := strings.TrimPrefix(input, "/assign_")
 		fmt.Printf("Назначить задачу с ID %s\n", id)

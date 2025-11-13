@@ -19,7 +19,7 @@ func (d *TelegramDelivery) Send(chatID ID, text string) {
 	_, err := d.bot.Send(msg)
 
 	if err != nil {
-		log.Printf("error send to chatID=%d text=%s err=%w", chatID, text, err)
+		log.Printf("error send to chatID=%d text=%s err=%s", chatID, text, err)
 	}
 }
 
@@ -32,7 +32,11 @@ func (d *TelegramDelivery) Receive(body io.Reader) (RequestMessage, error) {
 	}
 
 	return RequestMessage{
-		ChatID: int(message.Message.Chat.ID),
+		User: User{
+			ID:       ID(message.Message.From.ID),
+			UserName: message.Message.From.UserName,
+		},
+		ChatID: ID(message.Message.Chat.ID),
 		Text:   message.Message.Text,
 	}, nil
 }

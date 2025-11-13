@@ -23,8 +23,20 @@ func startTaskBot(ctx context.Context, httpListenAddr string) error {
 		bot: bot,
 	}
 
+	repo := NewRepo()
+
+	taskTracker := &TaskTracker{
+		delivery: tgDelivery,
+		repo:     repo,
+	}
+
+	router := &CmdRouter{
+		service: taskTracker,
+	}
+
 	srv := Server{
 		receiver: tgDelivery,
+		router: router,
 	}
 
 	bot.Debug = true

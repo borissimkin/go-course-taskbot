@@ -390,6 +390,7 @@ assignee: я
 		}
 		tds.Unlock()
 
+		t.Logf("%s passed", caseName)
 	}
 
 }
