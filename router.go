@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -23,7 +24,11 @@ func (r *CmdRouter) Parse(msg RequestMessage) {
 		r.service.CreateTask(chatID, strings.TrimPrefix(input, "/new "))
 	case strings.HasPrefix(input, "/assign_"):
 		id := strings.TrimPrefix(input, "/assign_")
-		fmt.Printf("Назначить задачу с ID %s\n", id)
+		intID, err := strconv.Atoi(id)
+		if err != nil {
+			return
+		}
+		r.service.AssignTask(ID(intID), chatID)
 
 	case strings.HasPrefix(input, "/unassign_"):
 		id := strings.TrimPrefix(input, "/unassign_")

@@ -43,8 +43,7 @@ func (t *TaskTracker) ListTasks(userID ID) {
 
 	listItems := make([]string, 0, len(tasks))
 	for index, task := range tasks {
-		owner := t.repo.GetUser(task.OwnerID)
-		listItems = append(listItems, fmt.Sprintf("%d. %s by @%s\n/assign_%d", index+1, task.Text, owner.UserName, task.ID))
+		listItems = append(listItems, t.getTaskListItem(userID, index, task))
 	}
 
 	result := strings.Join(listItems, "\n")
@@ -52,10 +51,69 @@ func (t *TaskTracker) ListTasks(userID ID) {
 	t.delivery.Send(userID, result)
 }
 
-func (t *TaskTracker) AssignTask() {
+func (t *TaskTracker) getTaskListItem(userID ID, index int, task Task) string {
+	owner := t.repo.GetUser(task.OwnerID)
 
+	taskTmpl := fmt.Sprintf("%d. %s by %s", index+1, task.Text, t.getUserName(owner.UserName))
+	if task.AssignedID == 0 {
+		taskTmpl += fmt.Sprintf("\n/assign_%d", task.ID)
+		return taskTmpl
+	}
+
+	assigneeName := "я"
+	if task.AssignedID != userID {
+		assigned := t.repo.GetUser(task.AssignedID)
+		if assigned != nil {
+			assigneeName = t.getUserName(assigned.UserName)
+		}
+	}
+
+	taskTmpl += fmt.Sprintf("\nassignee: %s", assigneeName)
+
+	if task.AssignedID == userID {
+		taskTmpl += fmt.Sprintf("\n/unassign_%d /resolve_%d", task.ID, task.ID)
+	}
+
+	return taskTmpl
+}
+
+func (t *TaskTracker) AssignTask(taskID, userID ID) {
+	var prevAssignedID ID = 0
+	task := t.repo.GetTask(taskID)
+	if task != nil {
+		prevAssignedID = task.AssignedID
+	}
+
+	err := t.repo.UpdateTaskAssignedID(taskID, userID)
+	if err != nil {
+		t.sendError(userID, err)
+		return
+	}
+
+	baseMessage := fmt.Sprintf("Задача \"%s\" назначена на ", task.Text)
+
+	t.delivery.Send(userID, baseMessage+"вас")
+
+	var prevUser *User
+	if prevAssignedID != 0 && prevAssignedID != userID {
+		prevUser = t.repo.GetUser(prevAssignedID)
+	} else if userID != task.OwnerID {
+		prevUser = t.repo.GetUser(task.OwnerID)
+	}
+
+	if prevUser != nil {
+		user := t.repo.GetUser(userID)
+		fmt.Println()
+		if user != nil {
+			t.delivery.Send(prevUser.ID, baseMessage+t.getUserName(user.UserName))
+		}
+	}
 }
 
 func (t *TaskTracker) sendError(chatID ID, err error) {
 	t.delivery.Send(chatID, fmt.Sprintf("ошибка: %s", err))
+}
+
+func (t *TaskTracker) getUserName(userName string) string {
+	return fmt.Sprintf("@%s", userName)
 }

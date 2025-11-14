@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 type ID int
 
 type User struct {
@@ -44,6 +46,27 @@ func (s *Repo) GetList() ([]Task, error) {
 	return s.tasks, nil
 }
 
+func (s *Repo) GetTask(id ID) *Task {
+	for _, task := range s.tasks {
+		if task.ID == id {
+			return &task
+		}
+	}
+
+	return nil
+}
+
+func (s *Repo) UpdateTaskAssignedID(id, assignedID ID) error {
+	for i, task := range s.tasks {
+		if task.ID == id {
+			s.tasks[i].AssignedID = assignedID
+			return nil
+		}
+	}
+
+	return fmt.Errorf("задача с id=%d не найдена", id)
+}
+
 func (s *Repo) GetUser(id ID) *User {
 	for _, u := range s.users {
 		if u.ID == id {
@@ -55,9 +78,9 @@ func (s *Repo) GetUser(id ID) *User {
 }
 
 func (s *Repo) UpdateOrCreateUser(user User) {
-	for _, u := range s.users {
+	for i, u := range s.users {
 		if u.ID == user.ID {
-			u = user
+			s.users[i] = user
 			return
 		}
 	}

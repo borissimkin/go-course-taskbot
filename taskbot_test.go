@@ -370,7 +370,6 @@ assignee: я
 	}
 
 	for idx, item := range cases {
-
 		tds.Lock()
 		tds.Answers = make(map[int]string)
 		tds.Unlock()
