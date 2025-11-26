@@ -110,6 +110,32 @@ func (t *TaskTracker) AssignTask(taskID, userID ID) {
 	}
 }
 
+func (t *TaskTracker) UnassignTask(taskID, userID ID) {
+	task := t.repo.GetTask(taskID)
+	if task == nil {
+		t.delivery.Send(userID, "Задачи нет")
+		return
+	}
+
+	if task.AssignedID != userID {
+		t.delivery.Send(userID, "Задача не на вас")
+		return
+	}
+
+	err := t.repo.UpdateTaskAssignedID(taskID, 0)
+	if err != nil {
+		t.sendError(userID, err)
+		return
+	}
+
+	msgToUnassigned := "Принято"
+	msgToOwner := fmt.Sprintf("Задача \"%s\" осталась без исполнителя", task.Text)
+
+	t.delivery.Send(userID, msgToUnassigned)
+	t.delivery.Send(task.OwnerID, msgToOwner)
+
+}
+
 func (t *TaskTracker) sendError(chatID ID, err error) {
 	t.delivery.Send(chatID, fmt.Sprintf("ошибка: %s", err))
 }

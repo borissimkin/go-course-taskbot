@@ -32,7 +32,11 @@ func (r *CmdRouter) Parse(msg RequestMessage) {
 
 	case strings.HasPrefix(input, "/unassign_"):
 		id := strings.TrimPrefix(input, "/unassign_")
-		fmt.Printf("Снять назначение с задачи %s\n", id)
+		intID, err := strconv.Atoi(id)
+		if err != nil {
+			return
+		}
+		r.service.UnassignTask(ID(intID), chatID)
 
 	case strings.HasPrefix(input, "/resolve_"):
 		id := strings.TrimPrefix(input, "/resolve_")
