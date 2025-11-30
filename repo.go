@@ -28,8 +28,8 @@ func NewRepo() *Repo {
 	}
 }
 
-func (s *Repo) CreateTask(ownerID ID, text string) (Task, error) {
-	nextId := s.getLastID() + 1
+func (r *Repo) CreateTask(ownerID ID, text string) (Task, error) {
+	nextId := r.getLastID() + 1
 
 	task := Task{
 		ID:      nextId,
@@ -37,17 +37,54 @@ func (s *Repo) CreateTask(ownerID ID, text string) (Task, error) {
 		OwnerID: ownerID,
 	}
 
-	s.tasks = append(s.tasks, task)
+	r.tasks = append(r.tasks, task)
 
 	return task, nil
 }
 
-func (s *Repo) GetList() ([]Task, error) {
-	return s.tasks, nil
+func (r *Repo) GetList() ([]Task, error) {
+	tasks, err := r.GetListWithFilter(r.tasks, func(task Task) bool {
+		return !task.Completed
+	})
+
+	return tasks, err
 }
 
-func (s *Repo) GetTask(id ID) *Task {
-	for _, task := range s.tasks {
+func (r *Repo) GetListByAssignee(assignedID ID) ([]Task, error) {
+	tasks, err := r.GetList()
+	if err != nil {
+		return tasks, err
+	}
+
+	return r.GetListWithFilter(tasks, func(task Task) bool {
+		return task.AssignedID == assignedID
+	})
+}
+
+func (r *Repo) GetListByOwner(ownerID ID) ([]Task, error) {
+	tasks, err := r.GetList()
+	if err != nil {
+		return tasks, err
+	}
+
+	return r.GetListWithFilter(tasks, func(task Task) bool {
+		return task.OwnerID == ownerID
+	})
+}
+
+func (r *Repo) GetListWithFilter(tasks []Task, filter func(Task) bool) ([]Task, error) {
+	filtered := make([]Task, 0, len(r.tasks))
+	for _, task := range tasks {
+		if filter(task) {
+			filtered = append(filtered, task)
+		}
+	}
+
+	return filtered, nil
+}
+
+func (r *Repo) GetTask(id ID) *Task {
+	for _, task := range r.tasks {
 		if task.ID == id {
 			return &task
 		}
@@ -56,10 +93,10 @@ func (s *Repo) GetTask(id ID) *Task {
 	return nil
 }
 
-func (s *Repo) UpdateTaskAssignedID(id, assignedID ID) error {
-	for i, task := range s.tasks {
+func (r *Repo) UpdateTaskAssignedID(id, assignedID ID) error {
+	for i, task := range r.tasks {
 		if task.ID == id {
-			s.tasks[i].AssignedID = assignedID
+			r.tasks[i].AssignedID = assignedID
 			return nil
 		}
 	}
@@ -67,8 +104,8 @@ func (s *Repo) UpdateTaskAssignedID(id, assignedID ID) error {
 	return fmt.Errorf("задача с id=%d не найдена", id)
 }
 
-func (s *Repo) GetUser(id ID) *User {
-	for _, u := range s.users {
+func (r *Repo) GetUser(id ID) *User {
+	for _, u := range r.users {
 		if u.ID == id {
 			return &u
 		}
@@ -77,23 +114,34 @@ func (s *Repo) GetUser(id ID) *User {
 	return nil
 }
 
-func (s *Repo) UpdateOrCreateUser(user User) {
-	for i, u := range s.users {
+func (r *Repo) UpdateOrCreateUser(user User) {
+	for i, u := range r.users {
 		if u.ID == user.ID {
-			s.users[i] = user
+			r.users[i] = user
 			return
 		}
 	}
 
-	s.users = append(s.users, user)
+	r.users = append(r.users, user)
 }
 
-func (s *Repo) getLastID() ID {
-	if len(s.tasks) == 0 {
+func (r *Repo) CompteteTask(id ID) error {
+	for i, task := range r.tasks {
+		if task.ID == id {
+			r.tasks[i].Completed = true
+			return nil
+		}
+	}
+
+	return fmt.Errorf("Задача не найдена")
+}
+
+func (r *Repo) getLastID() ID {
+	if len(r.tasks) == 0 {
 		return 0
 	}
 
-	lastTask := s.tasks[len(s.tasks)-1]
+	lastTask := r.tasks[len(r.tasks)-1]
 
 	return lastTask.ID
 }

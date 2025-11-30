@@ -40,13 +40,16 @@ func (r *CmdRouter) Parse(msg RequestMessage) {
 
 	case strings.HasPrefix(input, "/resolve_"):
 		id := strings.TrimPrefix(input, "/resolve_")
-		fmt.Printf("Закрыть задачу с ID %s\n", id)
-
+		intID, err := strconv.Atoi(id)
+		if err != nil {
+			return
+		}
+		r.service.ResolveTask(ID(intID), chatID)
 	case input == "/my":
-		fmt.Println("Показать мои задачи")
+		r.service.ListTasksByAssignee(chatID)
 
 	case input == "/owner":
-		fmt.Println("Показать задачи, где я владелец")
+		r.service.ListTasksByOwner(chatID)
 
 	default:
 		fmt.Println("Неизвестная команда")

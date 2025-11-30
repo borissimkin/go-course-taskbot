@@ -36,30 +36,65 @@ func (t *TaskTracker) ListTasks(userID ID) {
 		return
 	}
 
-	if len(tasks) == 0 {
-		t.delivery.Send(userID, "Нет задач")
+	t.delivery.Send(userID, t.getTaskListMsg(tasks, userID, true))
+}
+
+func (t *TaskTracker) ListTasksByAssignee(userID ID) {
+	tasks, err := t.repo.GetListByAssignee(userID)
+	if err != nil {
+		t.sendError(userID, err)
 		return
 	}
 
-	listItems := make([]string, 0, len(tasks))
-	for index, task := range tasks {
-		listItems = append(listItems, t.getTaskListItem(userID, index, task))
-	}
-
-	result := strings.Join(listItems, "\n")
-
-	t.delivery.Send(userID, result)
+	t.delivery.Send(userID, t.getTaskListMsg(tasks, userID, false))
 }
 
-func (t *TaskTracker) getTaskListItem(userID ID, index int, task Task) string {
+func (t *TaskTracker) ListTasksByOwner(userID ID) {
+	tasks, err := t.repo.GetListByOwner(userID)
+	if err != nil {
+		t.sendError(userID, err)
+		return
+	}
+
+	t.delivery.Send(userID, t.getTaskListMsg(tasks, userID, false))
+}
+
+func (t *TaskTracker) getTaskListMsg(tasks []Task, userID ID, withAssignee bool) string {
+	if len(tasks) == 0 {
+		return "Нет задач"
+	}
+
+	listItems := make([]string, 0, len(tasks))
+	for _, task := range tasks {
+		listItems = append(listItems, t.getTaskListItem(userID, task, withAssignee))
+	}
+
+	result := strings.Join(listItems, "\n\n")
+
+	return result
+}
+
+func (t *TaskTracker) getTaskListItem(userID ID, task Task, withAssignee bool) string {
 	owner := t.repo.GetUser(task.OwnerID)
 
-	taskTmpl := fmt.Sprintf("%d. %s by %s", index+1, task.Text, t.getUserName(owner.UserName))
+	taskTmpl := fmt.Sprintf("%d. %s by %s", task.ID, task.Text, t.getUserName(owner.UserName))
 	if task.AssignedID == 0 {
 		taskTmpl += fmt.Sprintf("\n/assign_%d", task.ID)
 		return taskTmpl
 	}
 
+	if withAssignee {
+		taskTmpl = t.addAssignee(taskTmpl, task, userID)
+	}
+
+	if task.AssignedID == userID {
+		taskTmpl += fmt.Sprintf("\n/unassign_%d /resolve_%d", task.ID, task.ID)
+	}
+
+	return taskTmpl
+}
+
+func (t *TaskTracker) addAssignee(taskListItem string, task Task, userID ID) string {
 	assigneeName := "я"
 	if task.AssignedID != userID {
 		assigned := t.repo.GetUser(task.AssignedID)
@@ -68,13 +103,7 @@ func (t *TaskTracker) getTaskListItem(userID ID, index int, task Task) string {
 		}
 	}
 
-	taskTmpl += fmt.Sprintf("\nassignee: %s", assigneeName)
-
-	if task.AssignedID == userID {
-		taskTmpl += fmt.Sprintf("\n/unassign_%d /resolve_%d", task.ID, task.ID)
-	}
-
-	return taskTmpl
+	return taskListItem + fmt.Sprintf("\nassignee: %s", assigneeName)
 }
 
 func (t *TaskTracker) AssignTask(taskID, userID ID) {
@@ -133,7 +162,36 @@ func (t *TaskTracker) UnassignTask(taskID, userID ID) {
 
 	t.delivery.Send(userID, msgToUnassigned)
 	t.delivery.Send(task.OwnerID, msgToOwner)
+}
 
+func (t *TaskTracker) ResolveTask(taskID, userID ID) {
+	task := t.repo.GetTask(taskID)
+	if task == nil {
+		t.delivery.Send(userID, "Задачи нет")
+		return
+	}
+
+	err := t.repo.UpdateTaskAssignedID(taskID, 0)
+	if err != nil {
+		t.sendError(userID, err)
+		return
+	}
+
+	err = t.repo.CompteteTask(task.ID)
+	if err != nil {
+		t.sendError(userID, err)
+		return
+	}
+
+	baseMsg := fmt.Sprintf("Задача \"%s\" выполнена", task.Text)
+
+	t.delivery.Send(userID, baseMsg)
+
+	assignedUser := t.repo.GetUser(userID)
+	if assignedUser != nil {
+		msgToOwner := fmt.Sprintf("%s %s", baseMsg, t.getUserName(assignedUser.UserName))
+		t.delivery.Send(task.OwnerID, msgToOwner)
+	}
 }
 
 func (t *TaskTracker) sendError(chatID ID, err error) {
